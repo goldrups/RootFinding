@@ -6,7 +6,7 @@ polynomial basis
 """
 
 import numpy as np
-from numpy.fft import fft
+from numpy.fft import fft,fft2
 from matplotlib import pyplot as plt
 from yroots.utils import transform
 
@@ -45,12 +45,20 @@ def interval_approx_2d(f,a,b,deg):
     if dim != len(b):
         raise ValueError("Interval dimensions must be the same!")
     
-    cheby_ext_1 = transform(np.cos((np.pi*np.arange(2*deg))/deg),a[0],b[0])
-    values_1 = f(cheby_ext_1)
-    cheby_ext_2 = transform(np.cos((np.pi*np.arange(2*deg))/deg),a[1],b[1])
-    values_2 = f(cheby_ext_2)
-    values = np.meshgrid(values_1,values_2)
-    coeffs = np.real(fft2(values)/(deg[0]*deg[1]))
+    cheby_ext_1 = transform(np.cos((np.pi*np.arange(2*deg[0]))/deg[0]),a[0],b[0])
+    cheby_ext_2 = transform(np.cos((np.pi*np.arange(2*deg[1]))/deg[1]),a[1],b[1])
+
+    grid_pts = np.meshgrid(cheby_ext_1,cheby_ext_2)
+    values_grid = f(grid_pts)
+    coeffs = np.real(fft2(values_grid)/(deg[0]*deg[1]))
+    coeffs[0,0] = coeffs[0,0]/2
+    coeffs[0,deg[0]] = coeffs[0,deg[0]]/2 #one's and zeros as indices maybe fixed this
+    coeffs[deg[1],0] = coeffs[deg[1],0]/2
+    coeffs[deg[1],deg[0]] = coeffs[deg[1],deg[0]]/2
+
+    coeffs = np.array(coeffs)
+    print(np.shape(coeffs))
+    return coeffs[:deg[1]+1,:deg[0]+1]
     #checkout interval_approx_slicers
 
 
@@ -59,15 +67,17 @@ def interval_approx_2d(f,a,b,deg):
 
 
 if __name__ == "__main__":
-    g = lambda x: x**2+2*x+3*x**3+4*x**11
-    a,b=-0.1,0.2
-    linear_combo = interval_approx_1d(g,a,b,9)
-    f = np.polynomial.chebyshev.Chebyshev(linear_combo,[a,b])
-    domain = np.linspace(a,b,1001)
-    plt.plot(domain,g(domain),label='g',color='r')
-    plt.plot(domain,f(domain),label='f',color='g')
-    plt.legend()
-    plt.show()
+    g = lambda x: x[0]**2+2*x[1]+3*x[1]**3+4*x[0]**11
+    a,b=[-0.1,0.2],[0.2,0.6]
+    deg = [4,4]
+    coeffs = interval_approx_2d(g,a,b,deg)
+    print(np.shape(coeffs))
+    # f = np.polynomial.chebyshev.Chebyshev(linear_combo,[a,b])
+    # domain = np.linspace(a,b,1001)
+    # plt.plot(domain,g(domain),label='g',color='r')
+    # plt.plot(domain,f(domain),label='f',color='g')
+    # plt.legend()
+    # plt.show()
 
 
 
