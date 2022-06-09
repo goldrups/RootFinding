@@ -401,7 +401,7 @@ def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
     b : numpy array
         The upper bound on the interval.
     deg : numpy array
-        The degree of the interpolation in each dimension.
+        The degree of the interpolation in each dimension. #Question THIS IS A NUMPY ARRAY
     return_inf_norm : bool
         whether to return the inf norm of the function
 
@@ -428,8 +428,8 @@ def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
     if return_inf_norm:
         inf_norm = np.max(np.abs(values_block))
 
-    x0_slicer, deg_slicer, slices, rescale = interval_approx_slicers(dim, deg)
-    coeffs = fftn(values/rescale).real
+    x0_slicer, deg_slicer, slices, rescale = interval_approx_slicers(dim, deg) #THIS IS A SCALAR
+    coeffs = fftn(values/rescale).real 
     for x0sl, degsl in zip(x0_slicer, deg_slicer):
         # halve the coefficients in each slice
         coeffs[x0sl] /= 2
@@ -451,7 +451,7 @@ def interval_approx_slicers(dim, deg):
     dim : int
         The interpolation dimension.
     deg : int
-        The interpolation degree.
+        The interpolation degree. #SEE WE TAKE THIS AS A SCALAR
 
     Returns
     -------
@@ -469,7 +469,7 @@ def interval_approx_slicers(dim, deg):
     deg_slicer = [tuple([slice(None) if i != d else deg for i in range(dim)])
                   for d in range(dim)]
     slices = tuple([slice(0, deg+1)]*dim)
-    return x0_slicer, deg_slicer, slices, deg**dim
+    return x0_slicer, deg_slicer, slices, deg**dim #number of dimensions by number of degrees?
 
 def full_cheb_approximate(f, a, b, deg, abs_approx_tol, rel_approx_tol, good_deg=None):
     """Gives the full chebyshev approximation and checks if it's good enough.
