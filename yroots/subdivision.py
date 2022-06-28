@@ -388,7 +388,8 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         flatten = lambda x: x.flatten()
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
-def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
+
+def interval_approx_nd(f, a, b, deg, return_inf_norm=False):
     """Finds the chebyshev approximation of an n-dimensional function on an
     interval.
 
@@ -411,31 +412,30 @@ def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
         The coefficient of the chebyshev interpolating polynomial.
     inf_norm : float
         The inf_norm of the function
-
-    EDIT: return_inf_norm argument will now be rendered useless while I test my approximation method
     """
-    if len(a) != len(b):
-        raise ValueError("dimension mismatch oh nooo")
+    
     dim = len(a)
+    if dim != len(b):
+        raise ValueError("Interval dimensions must be the same!")
 
-    cheb_vals = np.cos(np.arange(deg+1)*np.pi/deg)
-    cheb_grid = np.meshgrid(*([cheb_vals]*dim),indexing='ij')
-    flatten = lambda x: x.flatten()
-    cheby_pts = np.column_stack(tuple(map(flatten, cheb_grid)))
+    if hasattr(f,"evaluate_grid"):
+        cheb_values = np.cos(np.arange(deg+1)*np.pi/deg) #simply executes the lines within the function instead of the function call
+        chepy_pts =  np.column_stack([cheb_values]*dim)
+        cheb_pts = transform(chepy_pts,a,b)
+        values_block = f.evaluate_grid(cheb_pts)
+    else:
+        cheb_vals = np.cos(np.arange(deg+1)*np.pi/deg)
+        cheb_grid = np.meshgrid(*([cheb_vals]*dim),indexing='ij')
+        flatten = lambda x: x.flatten()
+        cheby_pts = np.column_stack(tuple(map(flatten, cheb_grid)))
+        cheb_pts = transform(cheby_pts,a,b)
+        values_block = f(*cheb_pts.T).reshape(*([deg+1]*dim))
 
-    cheb_pts = transform(cheby_pts,a,b)
-    #print(len(cheb_pts.T))
-    values_block = f(*cheb_pts.T).reshape(*([deg+1]*dim))
+    values = chebyshev_block_copy(values_block)
+    
+    if return_inf_norm:
+        inf_norm = np.max(np.abs(values_block))
 
-    #values = chebyshev_block_copy(values_block)
-    values = values_block
-
-    # cheby_ext_1 = transform(np.cos((np.pi*np.arange(2*deg))/deg),a[i],b[i])
-    # cheby_ext_2 = transform(np.cos((np.pi*np.arange(2*deg))/deg),a[1],b[1])
-
-    # grid_pts = 
-    # values_grid = f(grid_pts)
-    coeffs = np.real(fft2(values)/(deg**dim))
     x0_slicer, deg_slicer, slices, rescale = interval_approx_slicers(dim,deg)
     coeffs = fftn(values/rescale).real
 
@@ -444,8 +444,12 @@ def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
         coeffs[x0sl] /= 2
         coeffs[degsl] /= 2
 
-    return coeffs[tuple(slices)]
+    if return_inf_norm:
+        return coeffs[tuple(slices)], inf_norm
+    else:
+        return coeffs[tuple(slices)]
     #checkout interval_approx_slicers
+
 
 @memoize
 def interval_approx_slicers(dim, deg):
