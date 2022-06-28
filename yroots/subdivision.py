@@ -411,34 +411,41 @@ def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
         The coefficient of the chebyshev interpolating polynomial.
     inf_norm : float
         The inf_norm of the function
+
+    EDIT: return_inf_norm argument will now be rendered useless while I test my approximation method
     """
+    if len(a) != len(b):
+        raise ValueError("dimension mismatch oh nooo")
     dim = len(a)
-    if dim != len(b):
-        raise ValueError("Interval dimensions must be the same!")
 
-    if hasattr(f, "evaluate_grid"):
-        cheb_points = transform(get_cheb_grid(deg, dim, True), a, b)
-        values_block = f.evaluate_grid(cheb_points)
-    else:
-        cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
-        values_block = f(*cheb_points.T).reshape(*([deg+1]*dim))
+    cheb_vals = np.cos(np.arange(deg+1)*np.pi/deg)
+    cheb_grid = np.meshgrid(*([cheb_vals]*dim),indexing='ij')
+    flatten = lambda x: x.flatten()
+    cheby_pts = np.column_stack(tuple(map(flatten, cheb_grid)))
 
-    values = chebyshev_block_copy(values_block)
+    cheb_pts = transform(cheby_pts,a,b)
+    #print(len(cheb_pts.T))
+    values_block = f(*cheb_pts.T).reshape(*([deg+1]*dim))
 
-    if return_inf_norm:
-        inf_norm = np.max(np.abs(values_block))
+    #values = chebyshev_block_copy(values_block)
+    values = values_block
 
-    x0_slicer, deg_slicer, slices, rescale = interval_approx_slicers(dim, deg) #THIS IS A SCALAR
-    coeffs = fftn(values/rescale).real 
+    # cheby_ext_1 = transform(np.cos((np.pi*np.arange(2*deg))/deg),a[i],b[i])
+    # cheby_ext_2 = transform(np.cos((np.pi*np.arange(2*deg))/deg),a[1],b[1])
+
+    # grid_pts = 
+    # values_grid = f(grid_pts)
+    coeffs = np.real(fft2(values)/(deg**dim))
+    x0_slicer, deg_slicer, slices, rescale = interval_approx_slicers(dim,deg)
+    coeffs = fftn(values/rescale).real
+
     for x0sl, degsl in zip(x0_slicer, deg_slicer):
         # halve the coefficients in each slice
         coeffs[x0sl] /= 2
         coeffs[degsl] /= 2
 
-    if return_inf_norm:
-        return coeffs[tuple(slices)], inf_norm
-    else:
-        return coeffs[tuple(slices)]
+    return coeffs[tuple(slices)]
+    #checkout interval_approx_slicers
 
 @memoize
 def interval_approx_slicers(dim, deg):
