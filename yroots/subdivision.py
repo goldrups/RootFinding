@@ -389,7 +389,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
 
-def interval_approx_nd(f, a, b, deg, return_inf_norm=False):
+def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
     """Finds the chebyshev approximation of an n-dimensional function on an
     interval.
 
