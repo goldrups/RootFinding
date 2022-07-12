@@ -1,19 +1,27 @@
-from yroots.subdivision import interval_approximate_nd
 from yroots import eriks_code
 import numpy as np
 from yroots.utils import transform
 from scipy.fftpack import fftn
 from itertools import product
+from time import time
 
 class M_maker:
-    def __init__(self,f,a,b,deg):
+    def __init__(self,f,a,b,deg,return_inf_norm=False):
         self.f = f
         self.a = a
         self.b = b
         self.deg = deg
-        # self.values = []
-        # self.values_block = []
-        self.memoizer = {}
+        self.return_inf_norm = return_inf_norm
+
+        if self.return_inf_norm == True:
+            self.M, self.inf_norm = self.interval_approximate_nd(self.f,self.a,self.b,self.deg,self.return_inf_norm)
+            self.M2 = self.interval_approximate_nd(self.f,self.a,self.b,2*self.deg,self.return_inf_norm)[0]
+            self.err = np.abs(np.sum(np.abs(self.M)) - np.sum(np.abs(self.M2)))
+        else:
+            self.M = self.interval_approximate_nd(self.f,self.a,self.b,self.deg)
+            self.M2 = self.interval_approximate_nd(self.f,self.a,self.b,2*self.deg)
+            self.err = np.abs(np.sum(np.abs(self.M)) - np.sum(np.abs(self.M2)))
+
 
     def interval_approximate_nd(self,f, a, b, deg, return_inf_norm=False):
         """Finds the chebyshev approximation of an n-dimensional function on an
@@ -74,7 +82,7 @@ class M_maker:
             return coeffs[tuple(slices)], inf_norm
         else:
             return coeffs[tuple(slices)]
-
+    
     def chebyshev_block_copy(self,values_block):
         """This functions helps avoid double evaluation of functions at
         interpolation points. It takes in a tensor of function evaluation values
@@ -90,23 +98,26 @@ class M_maker:
         values_cheb : numpy array
         chebyshev interpolation values
         """
+
+        #np.empty(tuple([2*deg])*dim, dtype=np.float64)
         dim = values_block.ndim
         deg = values_block.shape[0] - 1
-        values_cheb = self.values_arr(dim) #
+        #values_cheb = values_arr(dim)
+        values_cheb = np.empty(tuple([2*deg])*dim, dtype=np.float64) #self.values_cheb?
         block_slicers, cheb_slicers, slicer = self.block_copy_slicers(dim, deg)
 
         for cheb_idx, block_idx in zip(cheb_slicers, block_slicers):
             try:
                 values_cheb[cheb_idx] = values_block[block_idx]
             except ValueError as e:
-                if str(e)[:42] == 'could not broadcast input array from shape':
-                    self.values_arr.memo[(dim, )] = np.empty(tuple([2*deg])*dim, dtype=np.float64) #MEMO
-                    values_cheb = self.values_arr(dim)
+                if str(e)[:42] == 'could not broadcast input array from shape': 
+                    #self.values_arr.memo[(dim, )] = np.empty(tuple([2*deg])*dim, dtype=np.float64) #I KNOW WHAT THIS DOES!
+                    values_cheb = np.empty(tuple([2*deg])*dim, dtype=np.float64)
                     values_cheb[cheb_idx] = values_block[block_idx]
                 else:
                     raise ValueError(e)
         return values_cheb[slicer]
-
+    
     def block_copy_slicers(self,dim, deg):
         """Helper function for chebyshev_block_copy.
         Builds slice objects to index into the evaluation array to copy
@@ -142,48 +153,6 @@ class M_maker:
             cheb_slicers.append(tuple(cheb_idx))
         return block_slicers, cheb_slicers, tuple([slice(0, 2*deg)]*dim)
 
-    def initialize_values_arr(self,dim, deg):
-        """Helper function for chebyshev_block_copy.
-        Initializes an array to use throughout the whole solve function.
-        Builds one array corresponding to dim and deg that can be used for any
-        block copy of degree less than deg
-
-        Parameters
-        ----------
-        dim : int
-            Dimension
-        deg : int
-            Degree
-
-        Returns
-        -------
-        An empty numpy array that can be used to hold values for a chebyshev_block_copy
-        of dimension dim degree < deg.
-        """
-        return np.empty(tuple([2*deg])*dim, dtype=np.float64)
-
-    def values_arr(self,dim):
-        """Helper function for chebyshev_block_copy.
-        Finds the array initialized by initialize_values_arr for dimension dim.
-        Assumes the degree of the approximation is less than the degree used for
-        initialize_values_arr.
-
-        Parameters
-        ----------
-        dim : int
-            Dimension
-
-        Returns
-        -------
-        An empty numpy array that can be used to hold values for a chebyshev_block_copy
-        of dimension dim and degree less than the degree used for initialize_values_arr.
-        """
-        keys = tuple(self.initialize_values_arr.memo.keys()) #MEMO
-        for idx, k in enumerate(keys):
-            if k[0]==dim:
-                break
-        return self.initialize_values_arr.memo[keys[idx]] #MEMO
-
     def interval_approx_slicers(self,dim, deg):
         """Helper function for interval_approximate_nd. Builds slice objects to index
         into the output of the fft and divide some of the values by 2 and turn them into
@@ -214,18 +183,133 @@ class M_maker:
         slices = tuple([slice(0, deg+1)]*dim)
         return x0_slicer, deg_slicer, slices, deg**dim
 
+def norm_pass_or_fail(yroots, roots, tol=2.220446049250313e-13):
+    """ Determines whether the roots given pass or fail the test according
+        to whether or not their norms are within tol of the norms of the
+        "actual" roots, which are determined either by previously known
+        roots or Marching Squares roots.
+    Parameters
+    ----------
+        yroots : numpy array
+            The roots that yroots found.
+        roots : numpy array
+            "Actual" roots either obtained analytically or through Marching
+            Squares.
+        tol : float, optional
+            Tolerance that determines how close the roots need to be in order
+            to be considered close. Defaults to 1000*eps where eps is machine
+            epsilon.
+
+    Returns
+    -------
+         bool
+            Whether or not all the roots were close enough.
+    """
+    roots_sorted = np.sort(roots,axis=0)
+    yroots_sorted = np.sort(yroots,axis=0)
+    root_diff = roots_sorted - yroots_sorted
+    return np.linalg.norm(root_diff[:,0]) < tol and np.linalg.norm(root_diff[:,1]) < tol
+
+def test_roots_1_1():
+    # Test 1.1
+        f = lambda x,y: 144*(x**4+y**4)-225*(x**2+y**2) + 350*x**2*y**2+81
+        g = lambda x,y: y-x**6
+        f_deg,g_deg = 4,6
+        a,b = np.array([-1,-1]),np.array([1,1])
+        start = time()
+        #yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+        f_approx = M_maker(f,a,b,f_deg) #use the class
+        g_approx = M_maker(g,a,b,g_deg)
+        Mf, Mg, err_f, err_g = f_approx.M, g_approx.M, f_approx.err, g_approx.err
+        yroots = np.array(eriks_code.solveChebyshevSubdivision([Mf,Mg],np.array([[-1,1],[-1,1]]),np.array([err_f,err_g])))
+        t = time() - start
+        actual_roots = np.load('Polished_results/polished_1.1.npy')
+        #chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.1.csv', delimiter=',')
+        
+        return norm_pass_or_fail(yroots,actual_roots),t
+        
 
 
-f = lambda x,y: 144*(x**4+y**4)-225*(x**2+y**2) + 350*x**2*y**2+81
-g = lambda x,y: y-x**6
-a,b = np.array([-1,-1]),np.array([1,1])
-f_deg,g_deg = 4,6
-Mf = interval_approximate_nd(f,a,b,f_deg)
-Mg = interval_approximate_nd(g,a,b,g_deg)
+def test_roots_1_2():
+    # Test 1.2
+    f = lambda x,y: (y**2-x**3)*((y-0.7)**2-(x-0.3)**3)*((y+0.2)**2-(x+0.8)**3)*((y+0.2)**2-(x-0.8)**3)
+    g = lambda x,y: ((y+.4)**3-(x-.4)**2)*((y+.3)**3-(x-.3)**2)*((y-.5)**3-(x+.6)**2)*((y+0.3)**3-(2*x-0.8)**3)
+    start = time()
+    #yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    t = time() - start
 
-err_f = Mf[0,0] + Mf[0,1] + Mf[1,0]
-err_g = Mg[0,0] + Mg[0,1] + Mg[1,0]
+    # Get Polished results (Newton polishing misses roots)
+    yroots2 = solve([f,g],[-1,-1],[1,1], abs_approx_tol=[1e-8, 1e-12], rel_approx_tol=[1e-15, 1e-18],\
+                max_cond_num=[1e5, 1e2], good_zeros_factor=[100,100], min_good_zeros_tol=[1e-5, 1e-5],\
+                check_eval_error=[True,True], check_eval_freq=[1,2], plot=False, target_tol=[1e-13, 1e-13])
+    actual_roots = np.load('Polished_results/polished_1.2.npy')
+    chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.2.csv', delimiter=',')
+
+    return t, verbose_pass_or_fail([f,g], yroots, yroots2, 1.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-10)
 
 
-roots = eriks_code.solveChebyshevSubdivision([Mf,Mg],np.array([[-1,1],[-1,1]]),np.array([err_f,err_g]))
-print(roots)
+def test_roots_1_3():
+    # Test 1.3
+    f = lambda x,y: y**2-x**3
+    g = lambda x,y: (y+.1)**3-(x-.1)**2
+    f_deg,g_deg = 3,3
+    a,b = np.array([-1,-1]),np.array([1,1])
+    start = time()
+    #yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    f_approx = M_maker(f,a,b,f_deg) #use the class
+    g_approx = M_maker(g,a,b,g_deg)
+    Mf, Mg, err_f, err_g = f_approx.M, g_approx.M, f_approx.err, g_approx.err
+    yroots = np.array(eriks_code.solveChebyshevSubdivision([Mf,Mg],np.array([[-1,1],[-1,1]]),np.array([err_f,err_g])))
+    t = time() - start
+    actual_roots = np.load('Polished_results/polished_1.3.npy')
+    #chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.3.csv', delimiter=',')
+
+    return norm_pass_or_fail(yroots,actual_roots),t
+
+def test_roots_1_4():
+    # Test 1.4
+    f = lambda x,y: x - y + .5
+    g = lambda x,y: x + y
+    f_deg,g_deg = 1,1
+    a,b = np.array([-1,-1]),np.array([1,1])
+    start = time()
+    #yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    f_approx = M_maker(f,a,b,f_deg) #use the class
+    g_approx = M_maker(g,a,b,g_deg)
+    Mf, Mg, err_f, err_g = f_approx.M, g_approx.M, f_approx.err, g_approx.err
+    yroots = np.array(eriks_code.solveChebyshevSubdivision([Mf,Mg],np.array([[-1,1],[-1,1]]),np.array([err_f,err_g])))
+    t = time() - start
+    # Single root has to be in matrix form because yroots
+    # returns the roots in matrix form.
+    a_roots = np.array([[-.25, .25]])
+    #chebfun_roots = np.array([np.loadtxt('Chebfun_results/test_roots_1.4.csv', delimiter=',')])
+
+    return norm_pass_or_fail(yroots,a_roots), t
+
+def test_roots_1_5():
+    # Test 1.5
+    f = lambda x,y: y + x/2 + 1/10
+    g = lambda x,y: y - 2.1*x + 2
+    f_deg,g_deg = 1,1
+    a,b = np.array([-1,-1]),np.array([1,1])
+    start = time()
+    #yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    f_approx = M_maker(f,a,b,f_deg) #use the class
+    g_approx = M_maker(g,a,b,g_deg)
+    Mf, Mg, err_f, err_g = f_approx.M, g_approx.M, f_approx.err, g_approx.err
+    yroots = np.array(eriks_code.solveChebyshevSubdivision([Mf,Mg],np.array([[-1,1],[-1,1]]),np.array([err_f,err_g])))
+    t = time() - start
+    # Single root has to be in matrix form because yroots
+    # returns the roots in matrix form.
+    a_roots = np.array([[0.730769230769231, -0.465384615384615]])
+
+    #chebfun_roots = np.array([np.loadtxt('Chebfun_results/test_roots_1.5.csv', delimiter=',')])
+
+    return norm_pass_or_fail(yroots,a_roots), t
+
+if __name__ == '__main__':
+    test_1 = test_roots_1_1()
+    test_3 = test_roots_1_3()
+    test_4 = test_roots_1_4()
+    test_5 = test_roots_1_5()
+    print(test_1,test_3,test_4,test_5)
