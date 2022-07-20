@@ -93,7 +93,7 @@ class M_maker:
             #print(self.err)
             if self.error_test(self.err,self.abs_approx_tol,self.rel_approx_tol,inf_norm):
                 #print("passed the test")
-                return deg
+                return deg #make it so the return statement is after the while LOOP
             elif 2*deg > max_deg[dim]:
                 #print("maxxed out")
                 return max_deg[dim] #MUST BE SELF-UPDATING
@@ -378,7 +378,7 @@ def test_roots_2_1():
     g = lambda x,y: x + y**2
     f_deg,g_deg = 1,2
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    #yroots = solve([f,g],[-1,-1],[1,1], plot=False)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.1.csv', delimiter=',')
@@ -536,7 +536,7 @@ def test_roots_4_2():
     f_deg,g_deg = 8,8
     a,b = np.array([-1,-1]),np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1, -1],[1,1], plot=False)
+    #yroots = solve([f,g],[-1, -1],[1,1], plot=False)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_4.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_4.2.csv', delimiter=',')
