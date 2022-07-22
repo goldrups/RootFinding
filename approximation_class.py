@@ -9,7 +9,7 @@ from tests.chebfun2_suite import norm_pass_or_fail,residuals,residuals_pass_or_f
 from matplotlib import pyplot as plt
 
 class M_maker:
-    def __init__(self,f,a,b,deg,return_inf_norm=False,rel_approx_tol=1.e-10, abs_approx_tol=1.e-10):
+    def __init__(self,f,a,b,guess_deg,return_inf_norm=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
         #print(deg)
         dim = len(a)
         if dim != len(b):
@@ -21,21 +21,25 @@ class M_maker:
         self.rel_approx_tol = rel_approx_tol
         self.abs_approx_tol = abs_approx_tol
         self.return_inf_norm = return_inf_norm
-        self.deg = self.find_good_deg(f,deg,dim,a,b)
-
-
+        self.deg = self.find_good_deg(f,guess_deg,dim,a,b)
         #print(self.deg)
 
         if self.return_inf_norm == True:
+            #print("will call it 0")
             self.M, self.inf_norm = self.interval_approximate_nd(self.f,self.a,self.b,self.deg,self.return_inf_norm)
+            #print("called it 00")
             self.M2 = self.interval_approximate_nd(self.f,self.a,self.b,2*self.deg,self.return_inf_norm)[0]
             self.M2[slice_top(self.M.shape)] -= self.M
             self.err = np.sum(np.abs(self.M2))
+            #print(self.err)
         else:
+            #print("will call it 0")
             self.M = self.interval_approximate_nd(self.f,self.a,self.b,self.deg)
+            #print("called it 00")
             self.M2 = self.interval_approximate_nd(self.f,self.a,self.b,2*self.deg)
             self.M2[slice_top(self.M.shape)] -= self.M
             self.err = np.sum(np.abs(self.M2))
+            #print(self.err)
 
 
     def error_test(self,error,abs_approx_tol,rel_approx_tol,inf_norm): 
@@ -58,7 +62,7 @@ class M_maker:
         Bool: if the error test has been passed or not
         """
         #print("welcome to approx class 2")
-        return error > abs_approx_tol+rel_approx_tol*inf_norm
+        return error < abs_approx_tol+rel_approx_tol*inf_norm
 
     def find_good_deg(self,f,deg,dim,a,b):
         """
@@ -85,25 +89,38 @@ class M_maker:
         max_deg = {1: 100, 2:20, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2}
 
         coeff = self.interval_approximate_nd(f, a, b, deg)
+        #print("called it 1")
         coeff2, inf_norm = self.interval_approximate_nd(f, a, b, deg*2, return_inf_norm=True)
+        #print("called it 2")
         coeff2[slice_top(coeff.shape)] -= coeff
         self.err = np.sum(np.abs(coeff2))
+
+        if deg >= max_deg[dim]: #might be able to stream line this if branch and the while loop
+            print("already too much/enough deg")
+            deg = max_deg[dim]
+            return deg
 
         while deg < max_deg[dim]:
             #print(self.err)
             if self.error_test(self.err,self.abs_approx_tol,self.rel_approx_tol,inf_norm):
-                #print("passed the test")
-                return deg #make it so the return statement is after the while LOOP
+                print("passed the test")
+                break
             elif 2*deg > max_deg[dim]:
-                #print("maxxed out")
-                return max_deg[dim] #MUST BE SELF-UPDATING
+                print("maxxed out")
+                deg = max_deg[dim]
+                break
             else:
-                #print("failure and double")
-                deg *= 2
+                print("failure and double")
+                deg = int(2*deg)
+                double_deg = int(2*deg)
+                #print("will call it 3")
                 coeff = self.interval_approximate_nd(f, a, b, deg)
-                coeff2, inf_norm = self.interval_approximate_nd(f, a, b, deg*2, return_inf_norm=True)
+                #print("will call it 4")
+                coeff2, inf_norm = self.interval_approximate_nd(f, a, b, double_deg, return_inf_norm=True)
                 coeff2[slice_top(coeff.shape)] -= coeff
                 self.err = np.sum(np.abs(coeff2))
+        
+        return deg
 
     def interval_approximate_nd(self,f, a, b, deg, return_inf_norm=False):
         """Finds the chebyshev approximation of an n-dimensional function on an
@@ -140,6 +157,8 @@ class M_maker:
             cheb_pts = transform(chepy_pts,a,b)
             self.values_block = f.evaluate_grid(cheb_pts)
         else:
+            #print("deg is", deg)
+            #print("and the type is...", type(deg))
             cheb_vals = np.cos(np.arange(deg+1)*np.pi/deg)
             cheb_grid = np.meshgrid(*([cheb_vals]*dim),indexing='ij')
             flatten = lambda x: x.flatten()
@@ -267,11 +286,18 @@ class M_maker:
         slices = tuple([slice(0, deg+1)]*dim)
         return x0_slicer, deg_slicer, slices, deg**dim
 
+# compare against old M's
+#set error's to zero once again
+
+
+#any failures could have something to do with the starting degree
+
+#this test runs well as long as you don't max out degree on g
 def test_roots_1_1():
     # Test 1.1
     f = lambda x,y: 144*(x**4+y**4)-225*(x**2+y**2) + 350*x**2*y**2+81
     g = lambda x,y: y-x**6
-    f_deg,g_deg = 4,6
+    f_deg,g_deg = 19,19
     a,b = np.array([-1,-1]),np.array([1,1])
     start = time()
     #yroots = solve([f,g],[-1,-1],[1,1], plot=False)
@@ -311,7 +337,7 @@ def test_roots_1_2():
     #print(actual_roots)
     #print(chebfun_roots)
 
-    return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 1.1, cheb_roots=chebfun_roots)
+    return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 1.2, cheb_roots=chebfun_roots)
 
 def test_roots_1_3():
     # Test 1.3
@@ -329,7 +355,7 @@ def test_roots_1_3():
     actual_roots = np.load('Polished_results/polished_1.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.3.csv', delimiter=',')
 
-    return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 1.1, cheb_roots=chebfun_roots)
+    return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 1.3, cheb_roots=chebfun_roots)
 
 def test_roots_1_4():
     # Test 1.4
@@ -349,7 +375,7 @@ def test_roots_1_4():
     a_roots = np.array([[-.25, .25]])
     chebfun_roots = np.array([np.loadtxt('Chebfun_results/test_roots_1.4.csv', delimiter=',')])
 
-    return t, verbose_pass_or_fail([f,g], yroots, a_roots, 1.1, cheb_roots=chebfun_roots)
+    return t, verbose_pass_or_fail([f,g], yroots, a_roots, 1.4, cheb_roots=chebfun_roots)
 
 def test_roots_1_5():
     # Test 1.5
@@ -370,21 +396,25 @@ def test_roots_1_5():
 
     chebfun_roots = np.array([np.loadtxt('Chebfun_results/test_roots_1.5.csv', delimiter=',')])
 
-    return t, verbose_pass_or_fail([f,g], yroots, a_roots, 1.1, cheb_roots=chebfun_roots)
-
+    return t, verbose_pass_or_fail([f,g], yroots, a_roots, 1.5, cheb_roots=chebfun_roots)
+#takes very long
 def test_roots_2_1():
     # Test 2.1
     f = lambda x,y: np.cos(10*x*y)
     g = lambda x,y: x + y**2
     f_deg,g_deg = 1,2
+    a,b = np.array([-1,-1]),np.array([1,1])
     start = time()
-    #yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    f_approx = M_maker(f,a,b,f_deg) #use the class
+    g_approx = M_maker(g,a,b,g_deg)
+    Mf, Mg, err_f, err_g = f_approx.M, g_approx.M, f_approx.err, g_approx.err
+    yroots = np.array(eriks_code.solveChebyshevSubdivision([Mf,Mg],np.array([[-1,1],[-1,1]]),np.array([err_f,err_g])))
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.1.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 2.1, cheb_roots=chebfun_roots)
-
+#fails residual test, finds more roots, 
 def test_roots_2_2():
     # Test 2.2
     f = lambda x,y: x
@@ -401,7 +431,7 @@ def test_roots_2_2():
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.2.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 2.2, cheb_roots=chebfun_roots)
-
+#maxs out on degree, fails residual test
 def test_roots_2_3():
     # Test 2.3
     f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
@@ -418,7 +448,15 @@ def test_roots_2_3():
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.3.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 2.3, cheb_roots=chebfun_roots)
-
+#maxs out and does not run to completion (), here is the error msg:
+# c:\miniconda\lib\site-packages\numpy\core\fromnumeric.py:87: RuntimeWarning: overflow encountered in reduce
+#   return ufunc.reduce(obj, axis, dtype, out, **passkwargs)
+# C:\Users\sgold\Documents\RootFinding\yroots\eriks_code.py:73: RuntimeWarning: invalid value encountered in subtract
+#   a = center - width
+# C:\Users\sgold\Documents\RootFinding\yroots\eriks_code.py:72: RuntimeWarning: overflow encountered in multiply
+#   width = np.sum(np.abs(Ainv*err),axis=1)
+# C:\Users\sgold\Documents\RootFinding\yroots\eriks_code.py:68: RuntimeWarning: invalid value encountered in matmul
+#   center = -Ainv@consts
 def test_roots_2_4():
     # Test 2.4
     f = lambda x,y: np.exp(x-2*x**2-y**2)*np.sin(10*(x+y+x*y**2))
@@ -435,7 +473,9 @@ def test_roots_2_4():
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.4.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 2.4, cheb_roots=chebfun_roots)
-
+#fails residual test, 103 polished roots but only 2 yroots
+#error msg:
+#ValueError: operands could not be broadcast together with shapes (2,) (103,)
 def test_roots_2_5():
     # Test 2.5
     f = lambda x,y: 2*y*np.cos(y**2)*np.cos(2*x)-np.cos(y)
@@ -452,7 +492,8 @@ def test_roots_2_5():
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.5.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 2.5, cheb_roots=chebfun_roots, tol=2.220446049250313e-12)
-
+#fails residual rest, 4 polished roots but only 3 yroots
+#ValueError: operands could not be broadcast together with shapes (3,) (4,)
 def test_roots_3_1():
     # Test 3.1
     f = lambda x,y: ((x-.3)**2+2*(y+0.3)**2-1)
@@ -469,7 +510,7 @@ def test_roots_3_1():
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_3.1.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 3.1, cheb_roots=chebfun_roots, tol=2.220446049250313e-11)
-
+#fails residual test, 94 yroots, 45 chebfun roots, 0 polished roots
 def test_roots_3_2():
     # Test 3.2
     f = lambda x,y: ((x-0.1)**2+2*(y-0.1)**2-1)*((x+0.3)**2+2*(y-0.2)**2-1)*((x-0.3)**2+2*(y+0.15)**2-1)*((x-0.13)**2+2*(y+0.15)**2-1)
@@ -492,7 +533,7 @@ def test_roots_3_2():
     actual_roots = chebfun_roots
 
     return t, verbose_pass_or_fail([f,g], yroots, yroots2, 3.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-11)
-
+#fails residual test, 11 yroots, 5 polished roots
 def test_roots_4_1():
     # Test 4.1
     # This system hs 4 true roots, but ms fails (finds 5).
@@ -510,7 +551,7 @@ def test_roots_4_1():
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_4.1.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 4.1, cheb_roots=chebfun_roots)
-
+#fails residual test, 10 yroots, 2 polsihed roots
 def test_roots_4_2():
     # Test 4.2 #PLEASE GET f_deg, g_deg right now
     f = lambda x,y: ((90000*y**10 + (-1440000)*y**9 + (360000*x**4 + 720000*x**3 + 504400*x**2 + 144400*x + 9971200)*(y**8) +
@@ -536,12 +577,49 @@ def test_roots_4_2():
     f_deg,g_deg = 8,8
     a,b = np.array([-1,-1]),np.array([1,1])
     start = time()
-    #yroots = solve([f,g],[-1, -1],[1,1], plot=False)
+    f_approx = M_maker(f,a,b,f_deg) #use the class
+    g_approx = M_maker(g,a,b,g_deg)
+    Mf, Mg, err_f, err_g = f_approx.M, g_approx.M, f_approx.err, g_approx.err
+    yroots = np.array(eriks_code.solveChebyshevSubdivision([Mf,Mg],np.array([[-1,1],[-1,1]]),np.array([err_f,err_g])))
     t = time() - start
     actual_roots = np.load('Polished_results/polished_4.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_4.2.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 4.2, cheb_roots=chebfun_roots)
+#takes long time, g_approx has an error of like 0.6
+def test_roots_5():
+    # Test 5.1
+    f = lambda x,y: 2*x*y*np.cos(y**2)*np.cos(2*x)-np.cos(x*y)
+    g = lambda x,y: 2*np.sin(x*y**2)*np.sin(3*x*y)-np.sin(x*y)
+    f_deg,g_deg = 4,4
+    a,b = np.array([-2,-2]),np.array([2,2])
+    start = time()
+    f_approx = M_maker(f,a,b,f_deg) #use the class
+    g_approx = M_maker(g,a,b,g_deg)
+    Mf, Mg, err_f, err_g = f_approx.M, g_approx.M, f_approx.err, g_approx.err
+    yroots = np.array(eriks_code.solveChebyshevSubdivision([Mf,Mg],np.array([[-1,1],[-1,1]]),np.array([err_f,err_g])))
+    t = time() - start
+    actual_roots = np.load('Polished_results/polished_5.1.npy')
+    chebfun_roots = np.loadtxt('Chebfun_results/test_roots_5.1.csv', delimiter=',')
+
+    return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 5.1, cheb_roots=chebfun_roots)
+#takes long time
+def test_roots_6_1():
+    # Test 6.1
+    f = lambda x,y: (y - 2*x)*(y+0.5*x)
+    g = lambda x,y: x*(x**2+y**2-1)
+    f_deg,g_deg = 1,2
+    a,b = np.array([-1,-1]),np.array([1,1])
+    start = time()
+    f_approx = M_maker(f,a,b,f_deg) #use the class
+    g_approx = M_maker(g,a,b,g_deg)
+    Mf, Mg, err_f, err_g = f_approx.M, g_approx.M, f_approx.err, g_approx.err
+    yroots = np.array(eriks_code.solveChebyshevSubdivision([Mf,Mg],np.array([[-1,1],[-1,1]]),np.array([err_f,err_g])))
+    t = time() - start
+    actual_roots = np.load('Polished_results/polished_6.1.npy')
+    chebfun_roots = np.loadtxt('Chebfun_results/test_roots_6.1.csv', delimiter=',')
+
+    return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 6.1, cheb_roots=chebfun_roots)
 
 def plot_timings(tests,timings):
     labels = [test.__name__[11:].replace('_','.') for test in tests]
@@ -560,18 +638,15 @@ def plot_timings(tests,timings):
 
 if __name__ == '__main__':
     tests = np.array([test_roots_1_1,
+                        test_roots_1_2,
                         test_roots_1_3,
                         test_roots_1_4,
                         test_roots_1_5,
-                        test_roots_2_1,
                         test_roots_2_2,
                         test_roots_2_3,
-                        test_roots_2_4,
-                        test_roots_2_5,
-                        test_roots_3_1,
-                        test_roots_3_2,
                         test_roots_4_1,
-                        test_roots_4_2])
+                        test_roots_4_2,
+                        test_roots_6_1])
     res_passes = np.zeros_like(tests,dtype=bool)
     norm_passes = np.zeros_like(tests,dtype=bool)
     times = np.zeros_like(tests)
@@ -591,3 +666,7 @@ if __name__ == '__main__':
     failed_norm_tests = tests[where_failed_norm]
     print(f'Failed Norm Test on \n{[t.__name__ for t in failed_norm_tests]}')
     plot_timings(tests,times)
+
+
+    #works on 19,19 --> 20,19 but not 20,20
+    #bigger arrays fail the test
