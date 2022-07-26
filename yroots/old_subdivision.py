@@ -453,7 +453,7 @@ def interval_approx_slicers(dim, deg):
     slices = tuple([slice(0, deg+1)]*dim)
     return x0_slicer, deg_slicer, slices, deg**dim
 
-def full_cheb_approximate(f, a, b, deg, abs_approx_tol, rel_approx_tol, good_deg=None):
+def full_cheb_approximate(f, a, b, deg, abs_approx_tol, rel_approx_tol, good_deg=None, force_deg=False):
     """Gives the full chebyshev approximation and checks if it's good enough.
     Parameters
     ----------
@@ -495,6 +495,9 @@ def full_cheb_approximate(f, a, b, deg, abs_approx_tol, rel_approx_tol, good_deg
     error = np.sum(np.abs(coeff2))
 
     #maybe just implement my own logic for the chebfun2_suite
+
+    if force_deg:
+        return coeff, inf_norm, error
 
     if error > abs_approx_tol+rel_approx_tol*inf_norm:
         return None, inf_norm, error

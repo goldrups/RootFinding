@@ -246,8 +246,10 @@ def values_arr(dim):
     of dimension dim and degree less than the degree used for initialize_values_arr.
     """
     keys = tuple(initialize_values_arr.memo.keys())
+    #jeff = None #my attempt to fix this
     for idx, k in enumerate(keys):
         if k[0]==dim:
+            #jeff = idx #my attempt
             break
     return initialize_values_arr.memo[keys[idx]]
 

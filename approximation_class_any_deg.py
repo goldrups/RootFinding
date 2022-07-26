@@ -1,3 +1,4 @@
+from ast import AsyncFunctionDef
 from yroots import eriks_code
 from yroots.subdivision import solve
 import numpy as np
@@ -9,7 +10,7 @@ from tests.chebfun2_suite import norm_pass_or_fail,residuals,residuals_pass_or_f
 from matplotlib import pyplot as plt
 
 class M_maker:
-    def __init__(self,f,a,b,guess_deg,return_inf_norm=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
+    def __init__(self,f,a,b,guess_deg,return_inf_norm=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,force_deg=False):
         #print(deg)
         dim = len(a)
         if dim != len(b):
@@ -21,7 +22,11 @@ class M_maker:
         self.rel_approx_tol = rel_approx_tol
         self.abs_approx_tol = abs_approx_tol
         self.return_inf_norm = return_inf_norm
-        self.deg = self.find_good_deg(f,guess_deg,dim,a,b)
+
+        if force_deg:
+            self.deg = guess_deg
+        else:
+            self.deg = self.find_good_deg(f,guess_deg,dim,a,b)
         #print(self.deg)
 
         if self.return_inf_norm == True:
