@@ -207,6 +207,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     else:
         return root_tracker.roots
 
+#VERY IMPORTANT 
 @Memoize
 def initialize_values_arr(dim, deg):
     """Helper function for chebyshev_block_copy.
@@ -228,6 +229,7 @@ def initialize_values_arr(dim, deg):
     """
     return np.empty(tuple([2*deg])*dim, dtype=np.float64)
 
+#VERY IMPORTANT
 @Memoize
 def values_arr(dim):
     """Helper function for chebyshev_block_copy.
@@ -253,6 +255,7 @@ def values_arr(dim):
             break
     return initialize_values_arr.memo[keys[idx]]
 
+#VERY IMPORTNANT
 @memoize
 def block_copy_slicers(dim, deg):
     """Helper function for chebyshev_block_copy.
@@ -289,6 +292,7 @@ def block_copy_slicers(dim, deg):
         cheb_slicers.append(tuple(cheb_idx))
     return block_slicers, cheb_slicers, tuple([slice(0, 2*deg)]*dim)
 
+#VERY IMPORTANT
 def chebyshev_block_copy(values_block):
     """This functions helps avoid double evaluation of functions at
     interpolation points. It takes in a tensor of function evaluation values
@@ -390,7 +394,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         flatten = lambda x: x.flatten()
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
-
+#VERY IMPORTANT
 def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
     """Finds the chebyshev approximation of an n-dimensional function on an
     interval.
@@ -452,7 +456,7 @@ def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
         return coeffs[tuple(slices)]
     #checkout interval_approx_slicers
 
-
+#VERY IMPORTANT
 @memoize
 def interval_approx_slicers(dim, deg):
     """Helper function for interval_approximate_nd. Builds slice objects to index

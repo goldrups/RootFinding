@@ -22,7 +22,7 @@ class M_maker:
         self.abs_approx_tol = abs_approx_tol
         self.return_inf_norm = return_inf_norm
         self.deg = self.find_good_deg(f,guess_deg,dim,a,b)
-        #print(self.deg)
+        print(self.deg)
 
         if self.return_inf_norm == True:
             #print("will call it 0")
@@ -40,7 +40,6 @@ class M_maker:
             self.M2[slice_top(self.M.shape)] -= self.M
             self.err = np.sum(np.abs(self.M2))
             #print(self.err)
-
 
     def error_test(self,error,abs_approx_tol,rel_approx_tol,inf_norm): 
         """
@@ -151,7 +150,7 @@ class M_maker:
         if dim != len(self.b):
             raise ValueError("Interval dimensions must be the same!")
 
-        if hasattr(self.f,"evaluate_grid"):
+        if hasattr(f,"evaluate_grid"):
             cheb_values = np.cos(np.arange(deg+1)*np.pi/deg) #simply executes the lines within the function instead of the function call
             chepy_pts =  np.column_stack([cheb_values]*dim)
             cheb_pts = transform(chepy_pts,a,b)
