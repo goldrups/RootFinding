@@ -21,13 +21,13 @@ class M_maker:
         self.rel_approx_tol = rel_approx_tol
         self.abs_approx_tol = abs_approx_tol
         self.return_inf_norm = return_inf_norm
-        self.deg = self.find_good_deg(f,guess_deg,dim,a,b)
         self.memo_dict = {}
-        print(self.deg)
+        self.deg = self.find_good_deg(f,guess_deg,dim,a,b)
+        self.values_block = None
 
         if self.return_inf_norm == True:
             #print("will call it 0")
-            self.M, self.inf_norm = self.interval_approximate_nd(self.f,self.a,self.b,self.deg,self.return_inf_norm)
+            self.M, self.inf_norm = self.interval_approximate_nd(self.f,self.a,self.b,self.deg,self.return_inf_norm,save_values_block=True)
             #print("called it 00")
             self.M2 = self.interval_approximate_nd(self.f,self.a,self.b,2*self.deg,self.return_inf_norm)[0]
             self.M2[slice_top(self.M.shape)] -= self.M
@@ -35,7 +35,7 @@ class M_maker:
             #print(self.err)
         else:
             #print("will call it 0")
-            self.M = self.interval_approximate_nd(self.f,self.a,self.b,self.deg)
+            self.M = self.interval_approximate_nd(self.f,self.a,self.b,self.deg,save_values_block=True)
             #print("called it 00")
             self.M2 = self.interval_approximate_nd(self.f,self.a,self.b,2*self.deg)
             self.M2[slice_top(self.M.shape)] -= self.M
@@ -86,7 +86,7 @@ class M_maker:
         deg: the correct approximation degree
         """
         #print("finding a good degree")
-        max_deg = {1: 100, 2:20, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2}
+        max_deg = {1: 100000, 2:1000, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2}
 
         coeff = self.interval_approximate_nd(f, a, b, deg)
         #print("called it 1")
@@ -101,7 +101,7 @@ class M_maker:
             return deg
 
         while deg < max_deg[dim]:
-            #print(self.err)
+            print(deg)
             if self.error_test(self.err,self.abs_approx_tol,self.rel_approx_tol,inf_norm):
                 print("passed the test")
                 break
@@ -122,7 +122,7 @@ class M_maker:
         
         return deg
 
-    def interval_approximate_nd(self,f, a, b, deg, return_inf_norm=False):
+    def interval_approximate_nd(self,f, a, b, deg, return_inf_norm=False, save_values_block=False):
         """Finds the chebyshev approximation of an n-dimensional function on an
         interval.
 
@@ -138,6 +138,8 @@ class M_maker:
             The degree of the interpolation in each dimension. #Question THIS IS A NUMPY ARRAY
         return_inf_norm : bool
             whether to return the inf norm of the function
+        save_values_block : bool
+            whether to save the values block as an attribute
 
         Returns
         -------
@@ -153,42 +155,54 @@ class M_maker:
             chepy_pts =  np.column_stack([cheb_values]*self.dim) #NEED TO SLICE INTO THIS
             cheb_pts = transform(chepy_pts,a,b)
 
-            if half_deg in self.memo_dict.keys(): #SAM 
+            if deg in self.memo_dict.keys():
+                values_block = self.memo_dict[deg]
+
+            elif half_deg in self.memo_dict.keys(): #SAM 
                 A = self.memo_dict[half_deg] #(half_deg+1,half_deg+1,....,half_deg+1) is shape #SAM
                 slices = tuple([slice(0, deg+1,2)]*self.dim)
                 mask = np.ones([deg+1]*self.dim)
                 mask[slices] = False
-                self.values_block = cheb_pts
-                self.values_block[mask] = f(self.values_block[mask])
-                self.values_block[slices] = A #no need to place the values from A into values_block in the right place
+                values_block = cheb_pts
+                values_block[mask] = f(self.values_block[mask])
+                values_block[slices] = A #no need to place the values from A into values_block in the right place
             else:
-                self.values_block = f.evaluate_grid(cheb_pts)
+                values_block = f.evaluate_grid(cheb_pts)
         else:
             cheb_vals = np.cos(np.arange(deg+1)*np.pi/deg)
             cheb_grid = np.meshgrid(*([cheb_vals]*self.dim),indexing='ij')
             flatten = lambda x: x.flatten()
             cheby_pts = np.column_stack(tuple(map(flatten, cheb_grid)))
             cheb_pts = transform(cheby_pts,a,b)
-            if half_deg in self.memo_dict.keys():
+            
+            if deg in self.memo_dict.keys():
+                values_block = self.memo_dict[deg]
+
+            elif half_deg in self.memo_dict.keys():
                 A = self.memo_dict[half_deg].flatten() #(half_deg+1,half_deg+1,....,half_deg+1) is shape #SAM
                 slices = tuple([slice(0, deg+1,2)]*self.dim)
-                mask = np.ones([deg+1]*self.dim)
+                mask = np.ones([deg+1]*self.dim,dtype=bool)
                 mask[slices] = False 
                 unknowns_mask = mask.flatten() #this mask will say where the unknown shit is in the array
-                knowns_mask = ~mask.flatten() #this mask will say where the known shit is
+                knowns_mask = ~unknowns_mask #this mask will say where the known shit is
                 values_arr = np.empty((deg+1)**self.dim)
-                values_arr[knowns_mask] = A[knowns_mask]
-                values_arr[unknowns_mask] = f(*cheb_pts.T[unknowns_mask])
-                self.values_block = values_arr.reshape(*([deg+1]*self.dim))
+                values_arr[knowns_mask] = A
+                values_arr[unknowns_mask] = f(*cheb_pts[unknowns_mask].T)
+                values_block = values_arr.reshape(*([deg+1]*self.dim))
             else:
-                self.values_block = f(*cheb_pts.T).reshape(*([deg+1]*self.dim))
+                values_block = f(*cheb_pts.T).reshape(*([deg+1]*self.dim))
+            
+            if save_values_block == True:
+                self.values_block = values_block
+            
+            self.memo_dict[deg] = values_block
 
-        self.values = self.chebyshev_block_copy(self.values_block)
+        self.values = self.chebyshev_block_copy(values_block)
 
         if return_inf_norm:
             inf_norm = np.max(np.abs(self.values))
 
-        x0_slicer, deg_slicer, slices, rescale = self.interval_approx_slicers(dim,deg)
+        x0_slicer, deg_slicer, slices, rescale = self.interval_approx_slicers(self.dim,deg)
         coeffs = fftn(self.values/rescale).real
 
         for x0sl, degsl in zip(x0_slicer, deg_slicer):
