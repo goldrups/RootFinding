@@ -22,6 +22,7 @@ class M_maker:
         self.abs_approx_tol = abs_approx_tol
         self.return_inf_norm = return_inf_norm
         self.deg = self.find_good_deg(f,guess_deg,dim,a,b)
+        self.memo_dict = {}
         print(self.deg)
 
         if self.return_inf_norm == True:
@@ -145,25 +146,42 @@ class M_maker:
         inf_norm : float
             The inf_norm of the function
         """
-        #print("doing an approximation")
-        dim = len(self.a)
-        if dim != len(self.b):
-            raise ValueError("Interval dimensions must be the same!")
+        half_deg = deg / 2
 
         if hasattr(f,"evaluate_grid"):
             cheb_values = np.cos(np.arange(deg+1)*np.pi/deg) #simply executes the lines within the function instead of the function call
-            chepy_pts =  np.column_stack([cheb_values]*dim)
+            chepy_pts =  np.column_stack([cheb_values]*self.dim) #NEED TO SLICE INTO THIS
             cheb_pts = transform(chepy_pts,a,b)
-            self.values_block = f.evaluate_grid(cheb_pts)
+
+            if half_deg in self.memo_dict.keys(): #SAM 
+                A = self.memo_dict[half_deg] #(half_deg+1,half_deg+1,....,half_deg+1) is shape #SAM
+                slices = tuple([slice(0, deg+1,2)]*self.dim)
+                mask = np.ones([deg+1]*self.dim)
+                mask[slices] = False
+                self.values_block = cheb_pts
+                self.values_block[mask] = f(self.values_block[mask])
+                self.values_block[slices] = A #no need to place the values from A into values_block in the right place
+            else:
+                self.values_block = f.evaluate_grid(cheb_pts)
         else:
-            #print("deg is", deg)
-            #print("and the type is...", type(deg))
             cheb_vals = np.cos(np.arange(deg+1)*np.pi/deg)
-            cheb_grid = np.meshgrid(*([cheb_vals]*dim),indexing='ij')
+            cheb_grid = np.meshgrid(*([cheb_vals]*self.dim),indexing='ij')
             flatten = lambda x: x.flatten()
             cheby_pts = np.column_stack(tuple(map(flatten, cheb_grid)))
             cheb_pts = transform(cheby_pts,a,b)
-            self.values_block = f(*cheb_pts.T).reshape(*([deg+1]*dim))
+            if half_deg in self.memo_dict.keys():
+                A = self.memo_dict[half_deg].flatten() #(half_deg+1,half_deg+1,....,half_deg+1) is shape #SAM
+                slices = tuple([slice(0, deg+1,2)]*self.dim)
+                mask = np.ones([deg+1]*self.dim)
+                mask[slices] = False 
+                unknowns_mask = mask.flatten() #this mask will say where the unknown shit is in the array
+                knowns_mask = ~mask.flatten() #this mask will say where the known shit is
+                values_arr = np.empty((deg+1)**self.dim)
+                values_arr[knowns_mask] = A[knowns_mask]
+                values_arr[unknowns_mask] = f(*cheb_pts.T[unknowns_mask])
+                self.values_block = values_arr.reshape(*([deg+1]*self.dim))
+            else:
+                self.values_block = f(*cheb_pts.T).reshape(*([deg+1]*self.dim))
 
         self.values = self.chebyshev_block_copy(self.values_block)
 
