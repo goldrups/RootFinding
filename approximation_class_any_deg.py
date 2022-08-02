@@ -22,16 +22,18 @@ class M_maker:
         self.rel_approx_tol = rel_approx_tol
         self.abs_approx_tol = abs_approx_tol
         self.return_inf_norm = return_inf_norm
+        self.values_block = None
 
         if force_deg:
             self.deg = guess_deg
         else:
+            #print("this executed OMG")
             self.deg = self.find_good_deg(f,guess_deg,dim,a,b)
         #print(self.deg)
 
         if self.return_inf_norm == True:
             #print("will call it 0")
-            self.M, self.inf_norm = self.interval_approximate_nd(self.f,self.a,self.b,self.deg,self.return_inf_norm)
+            self.M, self.inf_norm = self.interval_approximate_nd(self.f,self.a,self.b,self.deg,self.return_inf_norm, foreal=True)
             #print("called it 00")
             self.M2 = self.interval_approximate_nd(self.f,self.a,self.b,2*self.deg,self.return_inf_norm)[0]
             self.M2[slice_top(self.M.shape)] -= self.M
@@ -39,7 +41,7 @@ class M_maker:
             #print(self.err)
         else:
             #print("will call it 0")
-            self.M = self.interval_approximate_nd(self.f,self.a,self.b,self.deg)
+            self.M = self.interval_approximate_nd(self.f,self.a,self.b,self.deg, foreal=True)
             #print("called it 00")
             self.M2 = self.interval_approximate_nd(self.f,self.a,self.b,2*self.deg)
             self.M2[slice_top(self.M.shape)] -= self.M
@@ -91,7 +93,7 @@ class M_maker:
         deg: the correct approximation degree
         """
         #print("finding a good degree")
-        #max_deg = {1: 100, 2:20, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2}
+        max_deg = {1: 100000, 2:1000, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2}
 
         coeff = self.interval_approximate_nd(f, a, b, deg)
         #print("called it 1")
@@ -100,20 +102,21 @@ class M_maker:
         coeff2[slice_top(coeff.shape)] -= coeff
         self.err = np.sum(np.abs(coeff2))
 
-        # if deg >= max_deg[dim]: #might be able to stream line this if branch and the while loop
-        #     print("already too much/enough deg")
-        #     deg = max_deg[dim]
-        #     return deg
+        if deg >= max_deg[dim]: #might be able to stream line this if branch and the while loop
+            print("already too much/enough deg")
+            deg = max_deg[dim]
+            return deg
 
-        while deg < 2000:
+        while deg < max_deg[dim]:
+            print(deg)
             #print(self.err)
             if self.error_test(self.err,self.abs_approx_tol,self.rel_approx_tol,inf_norm):
                 print("passed the test")
                 break
-            # elif 2*deg > max_deg[dim]:
-            #     print("maxxed out")
-            #     deg = max_deg[dim]
-            #     break
+            elif 2*deg > max_deg[dim]:
+                print("maxxed out")
+                deg = max_deg[dim]
+                break
             else:
                 print("failure and double")
                 deg = int(2*deg)
@@ -127,7 +130,7 @@ class M_maker:
         
         return deg
 
-    def interval_approximate_nd(self,f, a, b, deg, return_inf_norm=False):
+    def interval_approximate_nd(self,f, a, b, deg, return_inf_norm=False, foreal=False):
         """Finds the chebyshev approximation of an n-dimensional function on an
         interval.
 
@@ -169,9 +172,12 @@ class M_maker:
             flatten = lambda x: x.flatten()
             cheby_pts = np.column_stack(tuple(map(flatten, cheb_grid)))
             cheb_pts = transform(cheby_pts,a,b)
-            self.values_block = f(*cheb_pts.T).reshape(*([deg+1]*dim))
-
-        self.values = self.chebyshev_block_copy(self.values_block)
+            #print(cheb_pts)
+            values_block = f(*cheb_pts.T).reshape(*([deg+1]*dim))
+            #print(self.values_block)
+        if foreal == True:
+            self.values_block = values_block
+        self.values = self.chebyshev_block_copy(values_block)
 
         if return_inf_norm:
             inf_norm = np.max(np.abs(self.values))
