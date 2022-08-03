@@ -161,10 +161,10 @@ class M_maker:
             elif half_deg in self.memo_dict.keys(): #SAM 
                 A = self.memo_dict[half_deg] #(half_deg+1,half_deg+1,....,half_deg+1) is shape #SAM
                 slices = tuple([slice(0, deg+1,2)]*self.dim)
-                mask = np.ones([deg+1]*self.dim)
+                mask = np.ones([deg+1]*self.dim,dtype=bool)
                 mask[slices] = False
                 values_block = cheb_pts
-                values_block[mask] = f(self.values_block[mask])
+                values_block[mask] = f(self.values_block[mask]) #f.evaluate_grid(values_block[mask])
                 values_block[slices] = A #no need to place the values from A into values_block in the right place
             else:
                 values_block = f.evaluate_grid(cheb_pts)
@@ -183,8 +183,8 @@ class M_maker:
                 slices = tuple([slice(0, deg+1,2)]*self.dim)
                 mask = np.ones([deg+1]*self.dim,dtype=bool)
                 mask[slices] = False 
-                unknowns_mask = mask.flatten() #this mask will say where the unknown shit is in the array
-                knowns_mask = ~unknowns_mask #this mask will say where the known shit is
+                unknowns_mask = mask.flatten() #this mask will say where the unknown stuff is in the array
+                knowns_mask = ~unknowns_mask #this mask will say where the known stuff is
                 values_arr = np.empty((deg+1)**self.dim)
                 values_arr[knowns_mask] = A
                 values_arr[unknowns_mask] = f(*cheb_pts[unknowns_mask].T)
