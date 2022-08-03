@@ -160,12 +160,14 @@ class M_maker:
 
             elif half_deg in self.memo_dict.keys(): #SAM 
                 A = self.memo_dict[half_deg] #(half_deg+1,half_deg+1,....,half_deg+1) is shape #SAM
-                slices = tuple([slice(0, deg+1,2)]*self.dim)
+                slices = tuple([slice(0, deg+1,2)]*self.dim) #where in the new matrix that the known values can be placed
+                values_block[slices] = A #now place those known values there
+                #after this, we are quite literally toast on how to tell evluate_grid to only evaluate the points where f is unknown
                 mask = np.ones([deg+1]*self.dim,dtype=bool)
                 mask[slices] = False
                 values_block = cheb_pts
-                values_block[mask] = f(self.values_block[mask]) #f.evaluate_grid(values_block[mask])
-                values_block[slices] = A #no need to place the values from A into values_block in the right place
+                values_block[mask] = f.evaluate_grid(values_block[mask])
+
             else:
                 values_block = f.evaluate_grid(cheb_pts)
         else:
@@ -179,7 +181,7 @@ class M_maker:
                 values_block = self.memo_dict[deg]
 
             elif half_deg in self.memo_dict.keys():
-                A = self.memo_dict[half_deg].flatten() #(half_deg+1,half_deg+1,....,half_deg+1) is shape #SAM
+                A = self.memo_dict[half_deg].flatten()
                 slices = tuple([slice(0, deg+1,2)]*self.dim)
                 mask = np.ones([deg+1]*self.dim,dtype=bool)
                 mask[slices] = False 
