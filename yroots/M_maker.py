@@ -4,7 +4,7 @@ from scipy.fftpack import fftn
 from itertools import product
 
 class M_maker:
-    def __init__(self,f,a,b,guess_deg,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
+    def __init__(self,f,a,b,guess_deg,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,dim_deg_cap=[None,None]):
         """
         Used to find M, an array of Chebyshev coefficients.
 
@@ -67,6 +67,9 @@ class M_maker:
         interval_approx_slicers: slicers to make the whole approximation
         """
         self.max_deg = {1: 100000, 2:1000, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2} #need to experiment with this
+        if dim_deg_cap[0] is not None and dim_deg_cap[1] is not None:
+            dim_to_cap,deg_cap = dim_deg_cap[0],dim_deg_cap[1]
+            self.max_deg[dim_to_cap] = deg_cap
         
         dim = len(a)
         if dim != len(b):

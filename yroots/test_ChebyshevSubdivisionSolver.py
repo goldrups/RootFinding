@@ -200,4 +200,22 @@ def test_runChebMonomialsTests(dims, maxDegs, verboseLevel = 0, returnErrors = F
     if returnErrors:
         return allErrors    
 
+def test_makeMatrix():
+    n = 2
+    a = -0.25
+    b = 0.125
+    alpha,beta = 0.5*(b-a),0.5*(b+a)
+    C = np.array([[1,beta],[0,alpha]])
+    madematrix = chebsolver.makeMatrix(n,a,b)
+    assert np.allclose(C,madematrix)
+
+def test_getTransformPoints():
+    n = np.random.randint(1,11)
+    interval = np.array([-1*np.random.random(n), np.random.random(n)]).T
+    interval = chebsolver.TrackedInterval(interval)
+    a,b = interval
+    alpha_hat,beta_hat = 0.5*(b-a), 0.5*(b+a)
+    alpha,beta = chebsolver.getTransformPoints(interval)
+    xhat,x = np.array([alpha_hat,beta_hat]),np.array([alpha,beta])
+    assert np.allclose(x,xhat)
 
