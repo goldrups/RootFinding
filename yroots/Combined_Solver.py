@@ -4,7 +4,7 @@ import yroots.M_maker as M_maker
 from yroots.utils import transform
 from yroots.polynomial import MultiCheb
 
-def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, returnBoundingBoxes = False, exact=False):
+def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, returnBoundingBoxes = False, exact=False, dim_deg_cap = [None,None]):
     """
     Finds the roots of the system of functions
 
@@ -30,6 +30,7 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
     ndarray:
     the yroots of the system of functions
     """
+    #TODO: allow for a list of one function? (MAIN, change all below to be on MAIN)
     #TODO: allow for a,b to deafult to ones and negative ones
     #TODO: handle case for when input degree is less than the approximation degree that was used
     #TODO: decide whether to have the guess_deg input default, and what it would be (could the approximation degree used work), maybe they need to know their degree
@@ -74,7 +75,7 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
     errs = np.array([0]*len(funcs))
 
     for idx in non_MultiCheb_idxs:
-        approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],rel_approx_tol,abs_approx_tol)
+        approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],rel_approx_tol,abs_approx_tol,dim_deg_cap=dim_deg_cap)
         if rescale:
             funcs[idx] = MultiCheb(approx.M_rescaled)
         else:
@@ -82,7 +83,7 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
         errs[idx] = approx.err
 
     for idx in MultiCheb_idxs:
-        approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],rel_approx_tol,abs_approx_tol)
+        approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],rel_approx_tol,abs_approx_tol,dim_deg_cap=dim_deg_cap)
         if rescale:
             funcs[idx] = MultiCheb(approx.M_rescaled)
         else:
