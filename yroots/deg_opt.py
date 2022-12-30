@@ -53,4 +53,5 @@ sol_times_4 = []
 
 
 #testsuite polynomials. we will have some where we know the guess_deg. so this is one d. 
-#we look for lowest possible guess_deg that gets it.
+#we look for lowest possible guess_deg that gets it
+#TODO: start copy pasting functions and commenting the test cases they come from
