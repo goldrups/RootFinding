@@ -97,7 +97,7 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
     #TODO: handle for case that input degree is above max_deg (provide a warning)
     #TODO: decide whether to move degree_guesser --> utils.py
     default_deg = 2 #the default for the guess degrees
-    guess_degs = degree_guesser(funcs,guess_degs,default_deg)[3]
+    guess_degs = degree_guesser(funcs,guess_degs,default_deg)[3] #handle when guess_degs is a single number...(for other branch)
 
     if len(a) != len(b):
         raise ValueError("Dimension mismatch in intervals.")
