@@ -4,125 +4,100 @@ from M_maker import M_maker
 from polynomial import MultiPower, MultiCheb
 from Combined_Solver import *
 import time
+from matplotlib import pyplot as plt
 
 max_deg = {1: 100000, 2:1000, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2}
 #randoms. we will not know the max_deg
 num_tests = 25
 #num_funcs = 2
 
+def get_soln_times(dim,num_tests=25):
+    times = []
+    guesses = []
+    ns = []
 
-def deg_2():
-    sol_times_2 = []
-    sol_degs_guess = []
-    sol_deg_n = []
-    for i in range(num_tests):
-        dim = 2
-        a,b = -1*np.ones(dim),np.ones(dim) #assume [-1,1]
-        cap_deg = max_deg[dim]*2 #double deg
+    num_funcs = dim
 
-        n = np.random.random(1,cap_deg+1) #now we now it
+    gran = 5 #granularity
+    deg_space = np.arange(1,1+gran)*int(2*max_deg[dim]/gran) #20,40,...
+    print(deg_space)
 
-        shape = tuple([n]*dim)
-        fs = [MultiPower(np.random.normal(size=shape)) for i in range(num_funcs)]
+    for n in deg_space:
+        sol_times = []
+        sol_degs_guess = []
+        sol_deg_n = []
+        sub_gran = 5
+        test_degs = [int(deg) for deg in np.linspace(0,n,sub_gran)][1:]
+        for sub_n in test_degs:
+            a,b = -1*np.ones(dim),np.ones(dim) #assume [-1,1]
+            cap_deg = max_deg[dim]
 
-        guess_deg = np.random.random(1,n+1)
+            #n = np.random.choice(cap_deg+1) #screw that bruh
+            #print(n)
+            shape = tuple([n]*dim)
+            fs = [MultiPower(np.random.normal(size=shape)) for i in range(num_funcs)]
 
-        a = time.time()
-        Ms = [MultiCheb(M_maker(f,a,b,guess_deg)) for f in fs]
-        yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision([M.M for M in Ms],[M.err for M in Ms]))
-        b = time.time()
+            s = time.time()
+            Ms = [M_maker.M_maker(f,a,b,sub_n,dim_deg_cap=[dim,cap_deg]) for f in fs]
+            Ms,errs = [MultiCheb(M.M).coeff for M in Ms], [M.err for M in Ms]
+            yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(Ms,errs))
+            f = time.time()
+            #print("time:", f-s)
+            #verify your roots
 
-        #verify your roots
-        #if verify...then append
+            #print(type(yroots))
+            checks = [soln_check(yroots,MultiCheb(M)) for M in Ms]
+            #print(checks)
 
-        sol_times_2.append(b-a)
-        sol_degs_guess.append(guess_deg)
-        sol_deg_n.append(n)
-        
-    sol_times_2 = np.array(sol_times_2)
-    sol_degs_guess = np.array(guess_deg)
-    sol_deg_n = np.array(sol_deg_n)
+            if checks == [True]*dim:
+                sol_times.append(f-s)
+                sol_degs_guess.append(sub_n)
+                sol_deg_n.append(n)
+            
+        times += sol_times
+        guesses += sol_degs_guess
+        ns += sol_deg_n
 
-    data = np.hstack((sol_times_2,sol_degs_guess,sol_deg_n))
-
-    return data
-
-def deg_3():
-    sol_times_3 = []
-    sol_degs_guess = []
-    sol_deg_n = []
-    for i in range(num_tests):
-        dim = 3
-        a,b = -1*np.ones(dim),np.ones(dim) #assume [-1,1]
-        cap_deg = max_deg[dim]*2 #double deg
-
-        n = np.random.random(1,cap_deg+1) #now we now it
-
-        shape = tuple([n]*dim)
-        fs = [MultiPower(np.random.normal(size=shape)) for i in range(num_funcs)]
-
-        guess_deg = np.random.random(1,n+1)
-
-        a = time.time()
-        Ms = [MultiCheb(M_maker(f,a,b,guess_deg)) for f in fs]
-        yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision([M.M for M in Ms],[M.err for M in Ms]))
-        b = time.time()
-
-        #verify your roots
-        #if verify...then append
-
-        sol_times_3.append(b-a)
-        sol_degs_guess.append(guess_deg)
-        sol_deg_n.append(n)
-        
-    sol_times_3 = np.array(sol_times_3)
-    sol_degs_guess = np.array(guess_deg)
-    sol_deg_n = np.array(sol_deg_n)
-
-    data = np.hstack((sol_times_3,sol_degs_guess,sol_deg_n))
+    data = np.array([times,guesses,ns])
 
     return data
 
+def viz(data):
+    times = data[0] #solve times
+    degs = data[1] #guesses
+    true_deg = data[2] #truth
 
-#
+    fig = plt.figure()
+    ax = plt.axes(projection = '3d')
+    ax.set_xlabel("guess")
+    ax.set_ylabel("truth")
+    ax.set_zlabel("time")
 
-#simpler problem
-def deg_4():
-    sol_times_4 = []
-    sol_degs_guess = []
-    sol_deg_n = []
-    for i in range(num_tests):
-        dim = 4
-        a,b = -1*np.ones(dim),np.ones(dim) #assume [-1,1]
-        cap_deg = max_deg[dim]*2
+    ax.scatter3D(degs,true_deg,times)
+    plt.show()
 
-        n = np.random.random(1,cap_deg+1) #now we now it
+def soln_check(roots,M):
+    """
+    Asserts that each root found is indeed a root
 
-        shape = tuple([n]*dim)
-        fs = [MultiPower(np.random.normal(size=shape)) for i in range(num_funcs)]
+    parameters:
+    M: polynomial object
+    roots: found roots
 
-        guess_deg = np.random.random(1,n+1)
-
-        a = time.time()
-        Ms = [MultiCheb(M_maker(f,a,b,guess_deg)) for f in fs]
-        yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision([M.M for M in Ms],[M.err for M in Ms]))
-        b = time.time()
-
-        #verify your roots
-        #if verify...then append
-
-        sol_times_4.append(b-a)
-        sol_degs_guess.append(guess_deg)
-        sol_deg_n.append(n)
-        
-    sol_times_4 = np.array(sol_times_4)
-    sol_degs_guess = np.array(guess_deg)
-    sol_deg_n = np.array(sol_deg_n)
-
-    data = np.hstack((sol_times_4,sol_degs_guess,sol_deg_n))
-
-    return data
-
+    returns True if all roots are indeed roots 
+    """
+    #TODO: perhaps can check double deg if the number of roots increase
+    #but i don't think we'll be missing roots due to low guess degree, and certainly not the high cap_deg
+    #print(type(M(roots)))
+    print(roots)
+    match = True
+    for root in roots:
+        if np.allclose(M(root),np.zeros(len(root))):
+            pass
+        else:
+            match = False
+            return match
+    return match
 
    
 #build a function or just re-loop
@@ -158,6 +133,28 @@ test_roots_8_1 = (lambda x,y: np.sin(10*x-y/10), lambda x,y: np.cos(3*x*y))
 test_roots_8_2 = (lambda x,y: np.sin(10*x-y/10) + y, lambda x,y: np.cos(10*y-x/10) - x)
 test_roots_9_1 = (lambda x,y: x**2+y**2-.9**2, lambda x,y: np.sin(x*y))
 test_roots_10 = (lambda x,y: (x-1)*(np.cos(x*y**2)+2), lambda x,y: np.sin(8*np.pi*y)*(np.cos(x*y)+2))
+
+dim_2_suite_tests = [test_roots_2_2, 
+                     test_roots_2_3, 
+                     test_roots_2_4, 
+                     test_roots_2_5, 
+                     test_roots_4_1, 
+                     test_roots_5, 
+                     test_roots_7_3,
+                     test_roots_7_4,
+                     test_roots_8_1,
+                     test_roots_8_2,
+                     test_roots_9_1,
+                     test_roots_10]
+
+def dim_2_tests():
+    for test in dim_2_suite_tests:
+        f,g = test
+        #increment uniformly to get the optimal degree
+        #guess and check back and forth #TODO: next
+        #decide on the opt_deg
+        #then do the same crap you did with the polynomials
+        #
 
 #checks = [check_2_2]
 

@@ -206,6 +206,8 @@ class M_maker:
         """
         half_deg = deg / 2
 
+        #print("[deg,cap_deg]:", deg, self.max_deg[self.dim]) #printing degree
+
         if hasattr(f,"evaluate_grid"):
             cheb_values = np.cos(np.arange(deg+1)*np.pi/deg)
             chepy_pts =  np.column_stack([cheb_values]*self.dim)
@@ -242,6 +244,8 @@ class M_maker:
             else:
                 values_block = f(*cheb_pts.T).reshape(*([deg+1]*self.dim))
             
+            print(values_block.shape)
+
             if save_values_block == True:
                 self.values_block = values_block
             
