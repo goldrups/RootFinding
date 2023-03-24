@@ -35,4 +35,4 @@ jobs:
         pytest
     - name: execute test files
       run: |
-        tests\test_Combined_Solver
+        python tests\test_Combined_Solver
