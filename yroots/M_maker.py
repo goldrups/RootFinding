@@ -2,7 +2,7 @@ import numpy as np
 from yroots.utils import transform, slice_top
 from scipy.fftpack import fftn
 from itertools import product
-#meaningless comment with less words 4
+#meaningless comment with less words 5
 class M_maker:
     def __init__(self,f,a,b,guess_deg,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
         """
