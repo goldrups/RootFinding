@@ -28,11 +28,14 @@ jobs:
         conda install flake8
     - name: install dependencies
       run: |
-        conda install requirements_dev.txt
-    - name: install pytest
-      run: |
         conda install pytest
-        pytest
+        conda install pip
+        conda install numpy
+        conda install numba 
+        conda install sympy
+        conda install matplotlib
+        conda install pytest-cov
+        conda install pytest-runner
     - name: execute test files
       run: |
         python tests\test_Combined_Solver
