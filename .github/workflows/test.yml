@@ -30,6 +30,9 @@ jobs:
       run: |
         conda install pytest
         pytest
+    - name: install dependencies
+      run: |
+        conda install requirements_dev.txt
     - name: execute test files
       run: |
         python tests\test_Combined_Solver
