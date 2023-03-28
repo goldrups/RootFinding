@@ -26,13 +26,13 @@ jobs:
     - name: Lint with flake8
       run: |
         conda install flake8
-    - name: Test with pytest
-      run: |
-        conda install pytest
-        pytest
     - name: install dependencies
       run: |
         conda install requirements_dev.txt
+    - name: install pytest
+      run: |
+        conda install pytest
+        pytest
     - name: execute test files
       run: |
         python tests\test_Combined_Solver
